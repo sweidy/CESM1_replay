@@ -57,7 +57,7 @@ module physpkg
   integer ::  prec_sh_idx        = 0
   integer ::  snow_sh_idx        = 0
 
-  integer :: t_ttend_oldid       = 0 ! from cam_comp, buffer vars
+  integer :: t_ttend_oldid       = 0
     integer ::  TEOUT_oldid      = 0 
     integer ::  DTCORE_oldid     = 0
     integer ::  QCWAT_oldid     = 0
@@ -2431,194 +2431,6 @@ end subroutine phys_timestep_init
 
 
 
-
-!!---flamraoui ---  read netcf forcing ----
-!subroutine read_nc_forcing (ncid, varname, varid)
-!subroutine read_nc_forcing (ncid, varname, field)
-
-  ! !USES:
-!  use pio, only : pio_offset, file_desc_t, var_desc_t, pio_noerr, pio_double, &
-!       pio_inq_varid, pio_inq_dimlen, pio_max_name, pio_bcast_error, &
-!       pio_internal_error, pio_inq_dimid, pio_max_var_dims, pio_inq_vardimid, &
-!       pio_inq_varndims, io_desc_t, pio_setframe, pio_read_darray, pio_seterrorhandling
-! use ncdio_atm,only: infld
- ! use shr_kind_mod , only: r8 => shr_kind_r8
- ! use shr_sys_mod  , only: shr_sys_flush         ! Standardized system subroutines
- ! use shr_scam_mod  , only: shr_scam_getCloseLatLon  ! Standardized system subroutines
- ! use spmd_utils   , only: masterproc
- ! use abortutils   , only: endrun
- ! use dycore,        only: dycore_is
- ! use scamMod,      only: initTimeIdx,scmlat,scmlon,single_column
- ! use cam_logfile,  only: iulog
-  ! !PUBLIC TYPES:
-
-!  use netcdf
-
-!  implicit none
-
-!    character(len=*), intent(in)  :: varname  ! variable name
-!    type(file_desc_t), intent(inout)  :: ncid     ! input unit
-!    real(r8),target , intent(out) :: field(1:144,1:96,1:26) ! array!
-
-  ! This is the name of the data file we will read. 
- !  character (len = *), parameter :: FILE_NAME = "/n/holylfs04/LABS/kuang_lab/Lab/nedkleiner/MERRAfolder/average.nc"
-
- !  varname='T'
-
-
-   ! allocate(ui_tmp(pcols,pver,begchunk:endchunk))
-   ! allocate(vi_tmp(pcols,pver,begchunk:endchunk))
-   ! allocate(wi_tmp(pcols,pver,begchunk:endchunk))
-
- !   call infld( varname ,ncid_ini,dim1name, 'lev', dim2name, 1, pcols, 1, pver, begchunk, endchunk, &
- !        ui_tmp, found_ui, gridname='physgrid')
-   
-
-
-  ! This is the name of the data file we will read. 
- ! character (len = *), parameter :: FILE_NAME = "/n/holylfs04/LABS/kuang_lab/Lab/nedkleiner/MERRAfolder/average.nc"
-     ! We are reading 3D data, a 144 x 96 X26 grid. 
- ! integer, parameter :: NX = 144, NY = 96, NZ = 26
-
- ! integer :: x, y, z
-
-  ! Open the file. NF90_NOWRITE tells netCDF we want read-only access to
-  ! the file.
- ! call check( nf90_open(FILE_NAME, NF90_NOWRITE, ncid) )
-
-  ! Get the varid of the data variable, based on its name.
-!  call check( nf90_inq_varid(ncid, "data", varid) )
-
-  ! Read the data.
- ! call check( nf90_get_var(ncid, varid, data_in) )
-
-  ! Check the data.
- ! do x = 1, NX
- !    do y = 1, NY
- !      do z= 1, NZ
-
-       ! if (data_in(y, x) /= (x - 1) * NY + (y - 1)) then
- !          print *, "data_in(", y, ", ", x, ") = ", data_in(y, x, z)
-       !    stop "Stopped"
-       ! end if
-
- !      end do
- !     end do
- ! end do
-
-
-    ! Close the file, freeing all resources.
-!  call check( nf90_close(ncid) )
-
-  !-----------------------------------------------------------------------
-
- !subroutine read_nc_forcing(ncid, varname, field)
-! check = shr_ncread_varExists('myfile','sst')
-!ncread_open(fileName,fid,rCode)
-
-! call shr_ncread_open('myfile',fid)
-
-! subroutine read_nc_forcing(fileName, fid, rCode)
-
-!subroutine shr_ncread_open(fileName,fid,rCode)
-
-!    use netcdf, only : nf90_get_var  !_EXTERNAL
-
-!Open netCDF file
-!:-------:-------:-------:-------:-------:-------:-------:
-!CALL check(nf90_open(infile, nf90_nowrite, ncid)) 
-
-
-
-  ! This is the name of the data file we will read. 
- ! character (len = *), parameter :: FILE_NAME = "/n/holylfs04/LABS/kuang_lab/Lab/nedkleiner/MERRAfolder/average.nc"
-
-
-
-
-
-
-
-
-!============================================================================================
-!===   subroutine "read_netcdf_FL" to read variables from Netcdf file : added F.lamraoui ====
-!============================================================================================
-
- subroutine read_netcdf_FL(fileName, varname, field)
-  use netcdf
-  implicit none
-     character(*),intent(in)          :: fileName
-     character (len=*),intent(in)     :: varname                    ! variable name  in netcdf 
-    real(r8), allocatable, dimension(:,:,:,:) , intent(out) ::  field  
-    real(r8), allocatable,dimension(:) :: time, lev, lat, lon
-!-- local 
-       integer  :: fid    ! netcdf file id
-       integer :: i, j, varid, numDims
-  !     integer, allocatable :: start_arr(:), count_arr(:)
-       integer ::    status  ! status output from netcdf routines
-       integer ::    ndim, nvar! sizes of netcdf file
-       integer :: dimID_TIME, dimID_DEPTH, dimID_LAT, dimID_LON, &
-&          mTIME, mDEPTH, mLAT, mLON, TIME_ID, DEPTH_ID, LAT_ID, LON_ID,&
-&          TEMP_ID, fidM
-
-   status = nf90_open(fileName,nf90_nowrite,fid)
- 
-!- read ID of dimensions of interest and save them in
-!  dimID_TIME, dimID_DEPTH, dimID_LAT, dimID_LON
-   print*,  'read ID of dimensions of interest and save them in '
-   status = NF90_INQ_DIMID(fid,"time",dimID_TIME)
-   status = NF90_INQ_DIMID(fid,"lev",dimID_DEPTH)
-   status = NF90_INQ_DIMID(fid,"lat",dimID_LAT)
-   status = NF90_INQ_DIMID(fid,"lon",dimID_LON)
-
-   print*,  'read values of dimensions and store in mTIME, mDEPTH, mLAT, mLON :'
-!- read values of dimensions and store in mTIME, mDEPTH, mLAT, mLON :
-   status = NF90_INQUIRE_DIMENSION(fid,dimID_TIME,len=mTIME)
-   status = NF90_INQUIRE_DIMENSION(fid,dimID_DEPTH,len=mDEPTH)
-   status = NF90_INQUIRE_DIMENSION(fid,dimID_LAT,len=mLAT)
-   status = NF90_INQUIRE_DIMENSION(fid,dimID_LON,len=mLON)
-
-   print*,  '!- Allocation of arrays : '
-!- Allocation of arrays :
-   ALLOCATE(  time(mTIME)  )
-   ALLOCATE(  lev(mDEPTH)  )
-   ALLOCATE(  lat(mLAT)  )
-   ALLOCATE(  lon(mLON)  )
-   ALLOCATE(  field(mLON,mLAT,mDEPTH,mTIME)  )
-!- read ID of variables of interest and store them in xxxx_ID :
-   print*,  'read ID of variables of interest and store them in xxxx_ID : '
-   status = NF90_INQ_VARID(fid,"time",TIME_ID)
-   status = NF90_INQ_VARID(fid,"lev",DEPTH_ID)
-   status = NF90_INQ_VARID(fid,"lat",LAT_ID)
-   status = NF90_INQ_VARID(fid,"lat",LON_ID)
-   status = NF90_INQ_VARID(fid,varname,TEMP_ID)
-   print*,  '!- read and store values of each variable : '
-!- read and store values of each variable :
-   status = NF90_GET_VAR(fid,TIME_ID,time)
-   status = NF90_GET_VAR(fid,DEPTH_ID,lev)
-   status = NF90_GET_VAR(fid,LAT_ID,lat)
-   status = NF90_GET_VAR(fid,LON_ID,lon)
-   status = NF90_GET_VAR(fid,TEMP_ID,field)
-!----
-    print *, "from subroutine , shape(T) = ", shape(field)
-    print *, "from subroutine ,SIZE(T) = ", SIZE(field)
-!!---Merra 0.9x1.25 shape(T) =  288 x 192 x  72 x  8
-   print *, " from subroutine , print  -------varname = ", varname
-   print*,  '!- close netcdf file : '
-!- close netcdf file :
-   status = NF90_CLOSE(fid)
- end subroutine read_netcdf_FL
-!============================================================================================
-!=== finish  subroutine "read_netcdf_FL" to read variables from Netcdf file : added F.lamraoui =
-!============================================================================================
-
-
-
-
-
-
-
-
 subroutine replay_correction (state,tend,ztodt)
 
 !----------------------------------------------------------------------- 
@@ -2640,11 +2452,6 @@ subroutine replay_correction (state,tend,ztodt)
    use shr_mem_mod,       only: shr_mem_init, shr_mem_getusage
     use pmgrid,          only: plon, plat 
 
-   real(r8) :: qtarget_c(pcols,begchunk:endchunk,pver)
-   real(r8) :: utarget_c(pcols,begchunk:endchunk,pver)
-   real(r8) :: vtarget_c(pcols,begchunk:endchunk,pver)
-   real(r8) :: starget_c(pcols,begchunk:endchunk,pver)
-   real(r8) :: ttarget_c(pcols,begchunk:endchunk,pver)
 
    real(r8) :: qforcing(pcols,begchunk:endchunk,pver)
    real(r8) :: uforcing(pcols,begchunk:endchunk,pver)
@@ -2668,7 +2475,7 @@ subroutine replay_correction (state,tend,ztodt)
 !      real(r8), allocatable :: zmean_field(:,:,:)      ! zonal mean value
       real(r8) :: zmean                        ! temporary zonal mean value
       integer :: i, j, qconst, ifld,n ,ilat,ilon                 ! longitude, latitude,field, and global column indices
-      integer :: hdim1, hdim2, c, ncols, k, istep, modstep
+      integer :: hdim1, hdim2, c, ncols, k, istep, modstep, modstepprime
       real(r8) ::rlat(pcols),damping_coef,wrk,forcingtime,dampingtime!,tmprand(128,64)
       real :: tmp_zero
       integer :: ilat_all(pcols)
@@ -2677,7 +2484,6 @@ subroutine replay_correction (state,tend,ztodt)
       logical :: fileexists
       logical,save :: corrector_step, started   
 !   integer,dimension(1:144) :: read_in_tmp, write_to_tmp
-      real(r8),dimension(1:288,1:192,1:pver) :: write_sforce,write_uforce,write_vforce,write_qforce
 !----- 
 !      type(file_desc_t), save :: fh_read, fh_write !!Added  
 !      type(var_desc_t) :: vdesc,diff_desc                !!Added
@@ -2690,22 +2496,19 @@ subroutine replay_correction (state,tend,ztodt)
     character(len=256) :: ncdata_loc,filen,ncwrite_loc,outn
 !     real, allocatable :: nacs(:) 
 integer :: dims2d(2)
-real(r8),dimension(1:288,1:pver,1:192) :: inputT 
-real(r8),dimension(1:288,1:192) :: onelev
 integer :: resul,lchnk
      real(r8), pointer :: londeg(:,:)
      type(file_desc_t) :: File
 
    !---------------------------flamraoui 2------------------------------
   ! variable for reading netcdf 
-    character(len=256)        :: fileName
+    character(len=256)        :: fileName_forcing, filename_merra
 
     !real(r8),allocatable,  dimension(:,:,:) ::  Sfield3d
     real(r8),allocatable,  dimension(:,:,:) ::  Tfield3d
     real(r8),allocatable,  dimension(:,:,:) ::  Qfield3d
     real(r8),allocatable,  dimension(:,:,:) ::  Ufield3d
     real(r8),allocatable,  dimension(:,:,:) ::  Vfield3d
-    real(r8),allocatable,  dimension(:,:,:) ::  Zfield3d
 
 integer, dimension(11) :: monarray
 
@@ -2740,7 +2543,11 @@ if (nstep_count==0 .AND. started .ne. .TRUE.) then
                     state(c)%qforce(i,k) = 0.0
                     state(c)%uforce(i,k) = 0.0
                     state(c)%vforce(i,k) = 0.0
-                    state(c)%sforce(i,k) = 0.0
+                    state(c)%sforce(i,k) = 0.0 
+                    state(c)%qforcebase(i,k)=0.0
+                    state(c)%uforcebase(i,k)=0.0
+                    state(c)%vforcebase(i,k)=0.0
+                    state(c)%sforcebase(i,k)=0.0
                 end do
             end do
         end do
@@ -2772,7 +2579,7 @@ endif
 
       call get_curr_date(yr, mon, day, ncsec)
 
-yr=yr+1979
+yr=yr+1979 ! for SPCAM
 !yr=max(yr,1980)
 
 
@@ -2789,10 +2596,46 @@ endif
 
     call get_horiz_grid_dim_d(hdim1, hdim2)
 
-
-modstep=int((mod(istep+6, 48)) / 6)
+modstepprime=int((mod(istep+2, 48)) / 12)*2 
+modstep=int((mod(istep, 48)) / 6)
 modstep6hr=  (mod(istep, 12)) 
 modstep3hr=  (mod(istep, 6)) 
+
+
+!-------------------------------------------------------------------------------------
+!-----------------------------determine forcing filename--------------------------------------
+if (mon<10) then
+       if (day<10) then
+           write (filename_forcing, '("/n/holylfs04/LABS/kuang_lab/Lab/sweidman/IC/spcam_fixreplay.","0", I1,"-0",I1,"-",I1,".nc")' ) mon, day,modstepprime
+       else 
+          write (filename_forcing,'("/n/holylfs04/LABS/kuang_lab/Lab/sweidman/IC/spcam_fixreplay.","0",I1,"-",I2,"-",I1,".nc")' ) mon, day,modstepprime
+       endif 
+    else   
+       if (day<10) then
+          write (filename_forcing,'("/n/holylfs04/LABS/kuang_lab/Lab/sweidman/IC/spcam_fixreplay.",I2,"-0",I1,"-",I1,".nc")' ) mon, day,modstepprime 
+       else 
+          write (filename_forcing,'("/n/holylfs04/LABS/kuang_lab/Lab/sweidman/IC/spcam_fixreplay.",I2,"-",I2,"-",I1,".nc")' ) mon, day,modstepprime
+       endif 
+    endif  
+
+INQUIRE(FILE=filename_forcing, EXIST=fileexists)
+
+if (.not. fileexists) print*, 'file missing', filename_forcing
+
+
+
+!end do
+
+!-------------------------------------------------------------------------------------
+if (masterproc) print*, "Forcing filename = ", filename_forcing    ! print filename used 
+!-----------------------------finish calling filename--------------------------------------  
+
+  !------------------------------------------
+   
+   
+!goals at end of "corrector" run
+!a) reset forcing to zero
+!b) set flag to false 
 
 fileexists=.FALSE.
 
@@ -2802,21 +2645,21 @@ do while (.NOT. fileexists )
 !-----------------------------determine filename--------------------------------------
    if (mon<10) then
        if (day<10) then
-           write (filename, '("/n/home04/sweidman/holylfs04/MERRA_coarse/MERRA2_",I4,"0", I1,"0",I1,"_",I1,".nc")' ) yr,mon, day,modstep
+           write (filename_merra, '("/n/home04/sweidman/holylfs04/MERRA_coarse/MERRA2_",I4,"0", I1,"0",I1,"_",I1,".nc")' ) yr,mon, day,modstep
        else 
-           write (filename, '("/n/home04/sweidman/holylfs04/MERRA_coarse/MERRA2_",I4,"0", I1,I2,"_",I1,".nc")' ) yr,mon, day, modstep
+           write (filename_merra, '("/n/home04/sweidman/holylfs04/MERRA_coarse/MERRA2_",I4,"0", I1,I2,"_",I1,".nc")' ) yr,mon, day, modstep
        endif 
     else   
        if (day<10) then
-           write (filename, '("/n/home04/sweidman/holylfs04/MERRA_coarse/MERRA2_",I4,I2,"0",I1,"_",I1,".nc")' ) yr,mon, day, modstep
+           write (filename_merra, '("/n/home04/sweidman/holylfs04/MERRA_coarse/MERRA2_",I4,I2,"0",I1,"_",I1,".nc")' ) yr,mon, day, modstep
        else 
-           write (filename, '("/n/home04/sweidman/holylfs04/MERRA_coarse/MERRA2_",I4, I2,I2,"_",I1,".nc")' ) yr,mon, day, modstep
+           write (filename_merra, '("/n/home04/sweidman/holylfs04/MERRA_coarse/MERRA2_",I4, I2,I2,"_",I1,".nc")' ) yr,mon, day, modstep
        endif 
     endif  
 
-INQUIRE(FILE=filename, EXIST=fileexists)
+INQUIRE(FILE=filename_merra, EXIST=fileexists)
 
-if (.not. fileexists) print*, 'file missing', filename
+if (.not. fileexists) print*, 'file missing', filename_merra
 
 day=day-1
 if (day==0) then
@@ -2831,7 +2674,7 @@ end if
 end do
 
 !-------------------------------------------------------------------------------------
-if (masterproc) print*, "Merra filename = ", filename    ! print filename used 
+if (masterproc) print*, "Merra filename = ", filename_merra    ! print filename used 
 !-----------------------------finish calling filename--------------------------------------  
 
 
@@ -2843,33 +2686,7 @@ if (masterproc) print*, "Merra filename = ", filename    ! print filename used
 !goals at end of "corrector" run
 !a) reset forcing to zero
 !b) set flag to false 
-   
-   if (modstep6hr == 11 ) then
-!       if (corrector_step) then
-           #if ( defined SPMD )
-           do c = begchunk, endchunk
-               call get_rlat_all_p(c,pcols,rlat)
-               call get_lat_all_p(c,pcols,ilat_all)
-               rlat=rlat*180._r8/3.14159
-               ncols = get_ncols_p(c)
-               do i = 1, ncols
-                   do k=1,pver
-                        state(c)%qforce(i,k) = 0.0
-                        state(c)%uforce(i,k) = 0.0
-                        state(c)%vforce(i,k) = 0.0
-                        state(c)%sforce(i,k) = 0.0 
-                   end do
-               end do
-           end do
-           #endif
-!       a) wipe the forcing to zero
-           corrector_step=.FALSE.
-
-    endif
-  !      set corrector_step is false
-     !
     
-     
 
 
 if (masterproc) then
@@ -2884,7 +2701,7 @@ endif
 !
 !if in "corrector" step: divide difference by 6h to get tendency and apply it to physics
 !
-if (corrector_step) then
+!if (corrector_step) then
 #if ( defined SPMD )
 do c = begchunk, endchunk
        call physics_ptend_init(ptend)
@@ -2916,7 +2733,7 @@ end do
     call physics_update (state(c), tend(c), ptend, ztodt)
 end do
 #endif
-endif
+!endif
 
 
 !goals at end of "clean" run
@@ -2928,7 +2745,7 @@ endif
 
     if  (modstep6hr==5 .AND. .NOT. corrector_step ) then
 
-   call cam_pio_openfile(File, trim(filename), 0)
+   call cam_pio_openfile(File, trim(filename_merra), 0)
      csize=endchunk-begchunk+1
 
         allocate(tmpfield(pcols*csize*pver))
@@ -2936,7 +2753,6 @@ endif
         allocate(Ufield3d(pcols,pver,begchunk:endchunk))
         allocate(Vfield3d(pcols,pver,begchunk:endchunk))
         allocate(Qfield3d(pcols,pver,begchunk:endchunk))
-        allocate(Zfield3d(pcols,pver,begchunk:endchunk))
 
         tmpfield(:)=0.0
 
@@ -2963,10 +2779,6 @@ endif
         call pio_read_darray(File, vardesc, iodesc, tmpfield, ierr)
         Qfield3d = reshape(tmpfield, (/pcols,pver, csize/))
 
-        ierr = pio_inq_varid(File, "Z3", vardesc)
-        call pio_setframe(vardesc, int(1,kind=PIO_OFFSET))
-        call pio_read_darray(File, vardesc, iodesc, tmpfield, ierr)
-        Zfield3d(:,:,:) = reshape(tmpfield, (/pcols,pver, csize/))
 
    call pio_closefile(File)  
 
@@ -2974,10 +2786,10 @@ endif
             ncols = get_ncols_p(c)
             do i = 1, ncols
                 do k=1,pver
-                    state(c)%qforce(i,k)=((Qfield3d(i,k,c)-state(c)%q(i,k,1)))
-                    state(c)%uforce(i,k)=((Ufield3d(i,k,c)-state(c)%u(i,k)))
-                    state(c)%vforce(i,k)=((Vfield3d(i,k,c)-state(c)%v(i,k)))
-                    state(c)%sforce(i,k)=((Tfield3d(i,k,c)-state(c)%t(i,k)))*cpair
+                    state(c)%qforce(i,k)=((Qfield3d(i,k,c)-state(c)%q(i,k,1)))+state(c)%qforcebase(i,k)
+                    state(c)%uforce(i,k)=((Ufield3d(i,k,c)-state(c)%u(i,k)))+state(c)%uforcebase(i,k)
+                    state(c)%vforce(i,k)=((Vfield3d(i,k,c)-state(c)%v(i,k)))+state(c)%vforcebase(i,k)
+                    state(c)%sforce(i,k)=((Tfield3d(i,k,c)-state(c)%t(i,k)))*cpair+state(c)%sforcebase(i,k)
                 end do
             end do
         end do
@@ -2987,12 +2799,93 @@ endif
         deallocate(Ufield3d)
         deallocate(Vfield3d)
         deallocate(Qfield3d)
-        deallocate(Zfield3d)
 !writing now happens in cam_diagnostics
 
         corrector_step=.TRUE.
 
 end if
+
+   if (modstep6hr == 11 ) then
+
+   call cam_pio_openfile(File, trim(filename_forcing), 0)
+     csize=endchunk-begchunk+1
+
+        allocate(tmpfield(pcols*csize*pver))
+        allocate(Tfield3d(pcols,pver,begchunk:endchunk))
+        allocate(Ufield3d(pcols,pver,begchunk:endchunk))
+        allocate(Vfield3d(pcols,pver,begchunk:endchunk))
+        allocate(Qfield3d(pcols,pver,begchunk:endchunk))
+
+        tmpfield(:)=0.0
+
+        call get_phys_decomp(iodesc,1,pver,1,pio_double)
+
+
+        ierr = pio_inq_varid(File, "SDIFF", vardesc)
+        call pio_setframe(vardesc, int(1,kind=PIO_OFFSET))
+        call pio_read_darray(File, vardesc, iodesc, tmpfield, ierr)
+        Tfield3d = reshape(tmpfield, (/pcols,pver, csize/))
+
+        ierr = pio_inq_varid(File, "UDIFF", vardesc)
+        call pio_setframe(vardesc, int(1,kind=PIO_OFFSET))
+        call pio_read_darray(File, vardesc, iodesc, tmpfield, ierr)
+        Ufield3d = reshape(tmpfield, (/pcols,pver, csize/))
+
+        ierr = pio_inq_varid(File, "VDIFF", vardesc)
+        call pio_setframe(vardesc, int(1,kind=PIO_OFFSET))
+        call pio_read_darray(File, vardesc, iodesc, tmpfield, ierr)
+        Vfield3d = reshape(tmpfield, (/pcols,pver, csize/))
+
+        ierr = pio_inq_varid(File, "QDIFF", vardesc)
+        call pio_setframe(vardesc, int(1,kind=PIO_OFFSET))
+        call pio_read_darray(File, vardesc, iodesc, tmpfield, ierr)
+        Qfield3d = reshape(tmpfield, (/pcols,pver, csize/))
+
+
+
+
+   call pio_closefile(File)  
+
+        do c = begchunk, endchunk
+            ncols = get_ncols_p(c)
+            do i = 1, ncols
+                do k=1,pver
+                    state(c)%qforcebase(i,k)=((Qfield3d(i,k,c)))
+                    state(c)%uforcebase(i,k)=((Ufield3d(i,k,c)))
+                    state(c)%vforcebase(i,k)=((Vfield3d(i,k,c)))
+                    state(c)%sforcebase(i,k)=((Tfield3d(i,k,c)))
+                end do
+            end do
+        end do
+
+        deallocate(tmpfield)
+        deallocate(Tfield3d)
+        deallocate(Ufield3d)
+        deallocate(Vfield3d)
+        deallocate(Qfield3d)
+
+!       if (corrector_step) then
+           #if ( defined SPMD )
+           do c = begchunk, endchunk
+               call get_rlat_all_p(c,pcols,rlat)
+               call get_lat_all_p(c,pcols,ilat_all)
+               rlat=rlat*180._r8/3.14159
+               ncols = get_ncols_p(c)
+               do i = 1, ncols
+                   do k=1,pver
+                        state(c)%qforce(i,k) = state(c)%qforcebase(i,k)
+                        state(c)%uforce(i,k) = state(c)%uforcebase(i,k)
+                        state(c)%vforce(i,k) = state(c)%vforcebase(i,k)
+                        state(c)%sforce(i,k) = state(c)%sforcebase(i,k)
+                   end do
+               end do
+           end do
+           #endif
+!       a) wipe the forcing to zero
+           corrector_step=.FALSE.
+
+    endif
+  !      set corrector_step is false
 
 end subroutine replay_correction
 

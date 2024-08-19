@@ -2431,194 +2431,6 @@ end subroutine phys_timestep_init
 
 
 
-
-!!---flamraoui ---  read netcf forcing ----
-!subroutine read_nc_forcing (ncid, varname, varid)
-!subroutine read_nc_forcing (ncid, varname, field)
-
-  ! !USES:
-!  use pio, only : pio_offset, file_desc_t, var_desc_t, pio_noerr, pio_double, &
-!       pio_inq_varid, pio_inq_dimlen, pio_max_name, pio_bcast_error, &
-!       pio_internal_error, pio_inq_dimid, pio_max_var_dims, pio_inq_vardimid, &
-!       pio_inq_varndims, io_desc_t, pio_setframe, pio_read_darray, pio_seterrorhandling
-! use ncdio_atm,only: infld
- ! use shr_kind_mod , only: r8 => shr_kind_r8
- ! use shr_sys_mod  , only: shr_sys_flush         ! Standardized system subroutines
- ! use shr_scam_mod  , only: shr_scam_getCloseLatLon  ! Standardized system subroutines
- ! use spmd_utils   , only: masterproc
- ! use abortutils   , only: endrun
- ! use dycore,        only: dycore_is
- ! use scamMod,      only: initTimeIdx,scmlat,scmlon,single_column
- ! use cam_logfile,  only: iulog
-  ! !PUBLIC TYPES:
-
-!  use netcdf
-
-!  implicit none
-
-!    character(len=*), intent(in)  :: varname  ! variable name
-!    type(file_desc_t), intent(inout)  :: ncid     ! input unit
-!    real(r8),target , intent(out) :: field(1:144,1:96,1:26) ! array!
-
-  ! This is the name of the data file we will read. 
- !  character (len = *), parameter :: FILE_NAME = "/n/holylfs04/LABS/kuang_lab/Lab/nedkleiner/MERRAfolder/average.nc"
-
- !  varname='T'
-
-
-   ! allocate(ui_tmp(pcols,pver,begchunk:endchunk))
-   ! allocate(vi_tmp(pcols,pver,begchunk:endchunk))
-   ! allocate(wi_tmp(pcols,pver,begchunk:endchunk))
-
- !   call infld( varname ,ncid_ini,dim1name, 'lev', dim2name, 1, pcols, 1, pver, begchunk, endchunk, &
- !        ui_tmp, found_ui, gridname='physgrid')
-   
-
-
-  ! This is the name of the data file we will read. 
- ! character (len = *), parameter :: FILE_NAME = "/n/holylfs04/LABS/kuang_lab/Lab/nedkleiner/MERRAfolder/average.nc"
-     ! We are reading 3D data, a 144 x 96 X26 grid. 
- ! integer, parameter :: NX = 144, NY = 96, NZ = 26
-
- ! integer :: x, y, z
-
-  ! Open the file. NF90_NOWRITE tells netCDF we want read-only access to
-  ! the file.
- ! call check( nf90_open(FILE_NAME, NF90_NOWRITE, ncid) )
-
-  ! Get the varid of the data variable, based on its name.
-!  call check( nf90_inq_varid(ncid, "data", varid) )
-
-  ! Read the data.
- ! call check( nf90_get_var(ncid, varid, data_in) )
-
-  ! Check the data.
- ! do x = 1, NX
- !    do y = 1, NY
- !      do z= 1, NZ
-
-       ! if (data_in(y, x) /= (x - 1) * NY + (y - 1)) then
- !          print *, "data_in(", y, ", ", x, ") = ", data_in(y, x, z)
-       !    stop "Stopped"
-       ! end if
-
- !      end do
- !     end do
- ! end do
-
-
-    ! Close the file, freeing all resources.
-!  call check( nf90_close(ncid) )
-
-  !-----------------------------------------------------------------------
-
- !subroutine read_nc_forcing(ncid, varname, field)
-! check = shr_ncread_varExists('myfile','sst')
-!ncread_open(fileName,fid,rCode)
-
-! call shr_ncread_open('myfile',fid)
-
-! subroutine read_nc_forcing(fileName, fid, rCode)
-
-!subroutine shr_ncread_open(fileName,fid,rCode)
-
-!    use netcdf, only : nf90_get_var  !_EXTERNAL
-
-!Open netCDF file
-!:-------:-------:-------:-------:-------:-------:-------:
-!CALL check(nf90_open(infile, nf90_nowrite, ncid)) 
-
-
-
-  ! This is the name of the data file we will read. 
- ! character (len = *), parameter :: FILE_NAME = "/n/holylfs04/LABS/kuang_lab/Lab/nedkleiner/MERRAfolder/average.nc"
-
-
-
-
-
-
-
-
-!============================================================================================
-!===   subroutine "read_netcdf_FL" to read variables from Netcdf file : added F.lamraoui ====
-!============================================================================================
-
- subroutine read_netcdf_FL(fileName, varname, field)
-  use netcdf
-  implicit none
-     character(*),intent(in)          :: fileName
-     character (len=*),intent(in)     :: varname                    ! variable name  in netcdf 
-    real(r8), allocatable, dimension(:,:,:,:) , intent(out) ::  field  
-    real(r8), allocatable,dimension(:) :: time, lev, lat, lon
-!-- local 
-       integer  :: fid    ! netcdf file id
-       integer :: i, j, varid, numDims
-  !     integer, allocatable :: start_arr(:), count_arr(:)
-       integer ::    status  ! status output from netcdf routines
-       integer ::    ndim, nvar! sizes of netcdf file
-       integer :: dimID_TIME, dimID_DEPTH, dimID_LAT, dimID_LON, &
-&          mTIME, mDEPTH, mLAT, mLON, TIME_ID, DEPTH_ID, LAT_ID, LON_ID,&
-&          TEMP_ID, fidM
-
-   status = nf90_open(fileName,nf90_nowrite,fid)
- 
-!- read ID of dimensions of interest and save them in
-!  dimID_TIME, dimID_DEPTH, dimID_LAT, dimID_LON
-   print*,  'read ID of dimensions of interest and save them in '
-   status = NF90_INQ_DIMID(fid,"time",dimID_TIME)
-   status = NF90_INQ_DIMID(fid,"lev",dimID_DEPTH)
-   status = NF90_INQ_DIMID(fid,"lat",dimID_LAT)
-   status = NF90_INQ_DIMID(fid,"lon",dimID_LON)
-
-   print*,  'read values of dimensions and store in mTIME, mDEPTH, mLAT, mLON :'
-!- read values of dimensions and store in mTIME, mDEPTH, mLAT, mLON :
-   status = NF90_INQUIRE_DIMENSION(fid,dimID_TIME,len=mTIME)
-   status = NF90_INQUIRE_DIMENSION(fid,dimID_DEPTH,len=mDEPTH)
-   status = NF90_INQUIRE_DIMENSION(fid,dimID_LAT,len=mLAT)
-   status = NF90_INQUIRE_DIMENSION(fid,dimID_LON,len=mLON)
-
-   print*,  '!- Allocation of arrays : '
-!- Allocation of arrays :
-   ALLOCATE(  time(mTIME)  )
-   ALLOCATE(  lev(mDEPTH)  )
-   ALLOCATE(  lat(mLAT)  )
-   ALLOCATE(  lon(mLON)  )
-   ALLOCATE(  field(mLON,mLAT,mDEPTH,mTIME)  )
-!- read ID of variables of interest and store them in xxxx_ID :
-   print*,  'read ID of variables of interest and store them in xxxx_ID : '
-   status = NF90_INQ_VARID(fid,"time",TIME_ID)
-   status = NF90_INQ_VARID(fid,"lev",DEPTH_ID)
-   status = NF90_INQ_VARID(fid,"lat",LAT_ID)
-   status = NF90_INQ_VARID(fid,"lat",LON_ID)
-   status = NF90_INQ_VARID(fid,varname,TEMP_ID)
-   print*,  '!- read and store values of each variable : '
-!- read and store values of each variable :
-   status = NF90_GET_VAR(fid,TIME_ID,time)
-   status = NF90_GET_VAR(fid,DEPTH_ID,lev)
-   status = NF90_GET_VAR(fid,LAT_ID,lat)
-   status = NF90_GET_VAR(fid,LON_ID,lon)
-   status = NF90_GET_VAR(fid,TEMP_ID,field)
-!----
-    print *, "from subroutine , shape(T) = ", shape(field)
-    print *, "from subroutine ,SIZE(T) = ", SIZE(field)
-!!---Merra 0.9x1.25 shape(T) =  288 x 192 x  72 x  8
-   print *, " from subroutine , print  -------varname = ", varname
-   print*,  '!- close netcdf file : '
-!- close netcdf file :
-   status = NF90_CLOSE(fid)
- end subroutine read_netcdf_FL
-!============================================================================================
-!=== finish  subroutine "read_netcdf_FL" to read variables from Netcdf file : added F.lamraoui =
-!============================================================================================
-
-
-
-
-
-
-
-
 subroutine replay_correction (state,tend,ztodt)
 
 !----------------------------------------------------------------------- 
@@ -2640,11 +2452,6 @@ subroutine replay_correction (state,tend,ztodt)
    use shr_mem_mod,       only: shr_mem_init, shr_mem_getusage
     use pmgrid,          only: plon, plat 
 
-   real(r8) :: qtarget_c(pcols,begchunk:endchunk,pver)
-   real(r8) :: utarget_c(pcols,begchunk:endchunk,pver)
-   real(r8) :: vtarget_c(pcols,begchunk:endchunk,pver)
-   real(r8) :: starget_c(pcols,begchunk:endchunk,pver)
-   real(r8) :: ttarget_c(pcols,begchunk:endchunk,pver)
 
    real(r8) :: qforcing(pcols,begchunk:endchunk,pver)
    real(r8) :: uforcing(pcols,begchunk:endchunk,pver)
@@ -2677,7 +2484,6 @@ subroutine replay_correction (state,tend,ztodt)
       logical :: fileexists
       logical,save :: corrector_step, started   
 !   integer,dimension(1:144) :: read_in_tmp, write_to_tmp
-      real(r8),dimension(1:288,1:192,1:pver) :: write_sforce,write_uforce,write_vforce,write_qforce
 !----- 
 !      type(file_desc_t), save :: fh_read, fh_write !!Added  
 !      type(var_desc_t) :: vdesc,diff_desc                !!Added
@@ -2690,8 +2496,6 @@ subroutine replay_correction (state,tend,ztodt)
     character(len=256) :: ncdata_loc,filen,ncwrite_loc,outn
 !     real, allocatable :: nacs(:) 
 integer :: dims2d(2)
-real(r8),dimension(1:288,1:pver,1:192) :: inputT 
-real(r8),dimension(1:288,1:192) :: onelev
 integer :: resul,lchnk
      real(r8), pointer :: londeg(:,:)
      type(file_desc_t) :: File
@@ -2705,7 +2509,6 @@ integer :: resul,lchnk
     real(r8),allocatable,  dimension(:,:,:) ::  Qfield3d
     real(r8),allocatable,  dimension(:,:,:) ::  Ufield3d
     real(r8),allocatable,  dimension(:,:,:) ::  Vfield3d
-    real(r8),allocatable,  dimension(:,:,:) ::  Zfield3d
 
 integer, dimension(11) :: monarray
 
@@ -2772,7 +2575,8 @@ endif
 
       call get_curr_date(yr, mon, day, ncsec)
 
-yr=max(yr,1980)
+yr=yr+1979
+!yr=max(yr,1980)
 
 
 if (masterproc) then
@@ -2801,15 +2605,15 @@ do while (.NOT. fileexists )
 !-----------------------------determine filename--------------------------------------
    if (mon<10) then
        if (day<10) then
-           write (filename, '("/n/home08/nedkleiner/holylfs04/MERRAall/IC/MERRA2_",I4,"0", I1,"0",I1,"_",I1,".nc")' ) yr,mon, day,modstep
+           write (filename, '("/n/home04/sweidman/holylfs04/MERRA_coarse/MERRA2_",I4,"0", I1,"0",I1,"_",I1,".nc")' ) yr,mon, day,modstep
        else 
-           write (filename, '("/n/home08/nedkleiner/holylfs04/MERRAall/IC/MERRA2_",I4,"0", I1,I2,"_",I1,".nc")' ) yr,mon, day, modstep
+           write (filename, '("/n/home04/sweidman/holylfs04/MERRA_coarse/MERRA2_",I4,"0", I1,I2,"_",I1,".nc")' ) yr,mon, day, modstep
        endif 
     else   
        if (day<10) then
-           write (filename, '("/n/home08/nedkleiner/holylfs04/MERRAall/IC/MERRA2_",I4,I2,"0",I1,"_",I1,".nc")' ) yr,mon, day, modstep
+           write (filename, '("/n/home04/sweidman/holylfs04/MERRA_coarse/MERRA2_",I4,I2,"0",I1,"_",I1,".nc")' ) yr,mon, day, modstep
        else 
-           write (filename, '("/n/home08/nedkleiner/holylfs04/MERRAall/IC/MERRA2_",I4, I2,I2,"_",I1,".nc")' ) yr,mon, day, modstep
+           write (filename, '("/n/home04/sweidman/holylfs04/MERRA_coarse/MERRA2_",I4, I2,I2,"_",I1,".nc")' ) yr,mon, day, modstep
        endif 
     endif  
 
@@ -2935,7 +2739,6 @@ endif
         allocate(Ufield3d(pcols,pver,begchunk:endchunk))
         allocate(Vfield3d(pcols,pver,begchunk:endchunk))
         allocate(Qfield3d(pcols,pver,begchunk:endchunk))
-        allocate(Zfield3d(pcols,pver,begchunk:endchunk))
 
         tmpfield(:)=0.0
 
@@ -2962,10 +2765,6 @@ endif
         call pio_read_darray(File, vardesc, iodesc, tmpfield, ierr)
         Qfield3d = reshape(tmpfield, (/pcols,pver, csize/))
 
-        ierr = pio_inq_varid(File, "Z3", vardesc)
-        call pio_setframe(vardesc, int(1,kind=PIO_OFFSET))
-        call pio_read_darray(File, vardesc, iodesc, tmpfield, ierr)
-        Zfield3d(:,:,:) = reshape(tmpfield, (/pcols,pver, csize/))
 
    call pio_closefile(File)  
 
@@ -2986,7 +2785,6 @@ endif
         deallocate(Ufield3d)
         deallocate(Vfield3d)
         deallocate(Qfield3d)
-        deallocate(Zfield3d)
 !writing now happens in cam_diagnostics
 
         corrector_step=.TRUE.
