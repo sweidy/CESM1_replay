@@ -2575,8 +2575,8 @@ endif
 
       call get_curr_date(yr, mon, day, ncsec)
 
-yr=yr+1979
-!yr=max(yr,1980)
+!yr=yr+1979 ! for CLIMO
+yr=max(yr,1980)
 
 
 if (masterproc) then
