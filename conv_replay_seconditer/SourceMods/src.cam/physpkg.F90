@@ -57,7 +57,7 @@ module physpkg
   integer ::  prec_sh_idx        = 0
   integer ::  snow_sh_idx        = 0
 
-  integer :: t_ttend_oldid       = 0
+  integer :: t_ttend_oldid       = 0 ! from cam_comp, buffer vars
     integer ::  TEOUT_oldid      = 0 
     integer ::  DTCORE_oldid     = 0
     integer ::  QCWAT_oldid     = 0
@@ -83,30 +83,6 @@ module physpkg
     integer ::  Tauresy_oldid     = 0
     integer ::  tpert_oldid     = 0
     integer ::  qpert_oldid     = 0
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
   save
@@ -1035,6 +1011,9 @@ subroutine phys_run1(phys_state, ztodt, phys_tend, pbuf2d,  cam_in, cam_out)
           call t_startf ('diag_physvar_ic')
           call diag_physvar_ic ( c,  phys_buffer_chunk, cam_out(c), cam_in(c) )
           call t_stopf ('diag_physvar_ic')
+
+          ! adding read in convective forcing for SPCAM later 
+          call read_convective_bias_file (ztodt, phys_state)
 
           call tphysbc (ztodt, fsns(1,c), fsnt(1,c), flns(1,c), flnt(1,c), phys_state(c),        &
                        phys_tend(c), phys_buffer_chunk,  fsds(1,c), landm(1,c),          &
@@ -2210,8 +2189,16 @@ subroutine tphysbc (ztodt,               &
     end if
 
     if (use_SPCAM) then
-      call crm_physics_tend(ztodt, state, tend, ptend, pbuf, dlf, cam_in, cam_out)
+      if (masterproc) then
+         print*, "state before entering crm"
+         print*, state%s(1,5)
+      endif
 
+      call crm_physics_tend(ztodt, state, tend, ptend, pbuf, dlf, cam_in, cam_out)
+      if (masterproc) then
+         print*, "state after exiting crm"
+         print*, state%s(1,5)
+      endif
    endif
 
    if(use_SPCAM .and. SPCAM_microp_scheme .eq. 'm2005') then 
@@ -2470,10 +2457,6 @@ subroutine replay_correction (state,tend,ztodt)
       real(r8) , intent(in) :: ztodt
 ! Local workspace
       type(physics_ptend)   :: ptend                  ! indivdualparameterization tendencies
-!      real(r8) ::     arrq(pcols,begchunk:endchunk,pver),arrt(pcols,begchunk:endchunk,pver),arru(pcols,begchunk:endchunk,pver),arrv(pcols,begchunk:endchunk,pver)       ! Input array,chunked
-!      real(r8), allocatable :: arr_field(:,:,:)   ! rectangular version of arr
-!      real(r8), allocatable :: zmean_field(:,:,:)      ! zonal mean value
-!      real(r8) :: zmean                        ! temporary zonal mean value
       integer :: i, j, qconst, ifld,n ,ilat,ilon                 ! longitude, latitude,field, and global column indices
       integer :: hdim1, hdim2, c, ncols, k, istep, modstep, modstepprime
       real(r8) ::rlat(pcols),damping_coef,wrk,forcingtime,dampingtime!,tmprand(128,64)
@@ -2861,6 +2844,200 @@ end if
 
 end subroutine replay_correction
 
+
+subroutine read_convective_bias_file (ztodt, state)
+
+   !----------------------------------------------------------------------- 
+! Purpose: 
+!-----------------------------------------------------------------------
+   use physics_buffer, only : pbuf_get_index, dtype_r8
+   !use rgrid,        only: nlon
+   !use phys_grid,    only: gather_chunk_to_field, scatter_field_to_chunk
+   use dyn_grid,     only: get_horiz_grid_dim_d
+   use time_manager, only: get_nstep, get_curr_date
+   !use physconst,    only: cpair
+   !use phys_control, only: phys_getopts
+   use cam_pio_utils,    only: cam_pio_openfile, get_phys_decomp, phys_decomp
+   use pio,          only: pio_read_darray, file_desc_t, var_desc_t, io_desc_t, pio_offset, pio_setframe, pio_double, pio_inq_varid, pio_closefile
+   use pio_types, only : file_desc_t, var_desc_t, io_desc_t
+   !use ioFileMod,     only: getfil
+   !use shr_mem_mod,       only: shr_mem_init, shr_mem_getusage
+   !use pmgrid,          only: plon, plat
+   
+   integer, save :: nstep_count
+
+! Arguments
+   real(r8) , intent(in) :: ztodt   
+   type(physics_state), intent(inout) :: state(begchunk:endchunk)
+
+! Local workspace
+   !type(physics_ptend)   :: ptend                  ! indivdual parameterization tendencies
+   integer :: i, j,n ,ilat                 ! longitude, latitude,field, and global column indices
+   integer :: hdim1, hdim2, c, ncols, k, istep, modstep
+   real(r8) ::rlat(pcols),conv_forcingtime!,tmprand(128,64)
+   !real :: tmp_zero
+   integer :: ilat_all(pcols)
+   integer :: ndays, day, mon, yr, ncsec
+   integer :: modstep24hr
+   integer :: modstep6hr
+   logical :: fileexists
+   logical,save :: conv_started  
+   integer :: ierr,csize                           
+   !integer :: resul,lchnk
+   type(file_desc_t) :: File 
+!-----
+      
+   ! variable for reading netcdf 
+   character(len=256)        :: fileName
+
+   !real(r8),allocatable,  dimension(:,:,:) ::  Sfield3d
+   real(r8),allocatable,  dimension(:,:,:) ::  Tfield3d_conv
+   real(r8),allocatable,  dimension(:,:,:) ::  Qfield3d_conv
+   real(r8),allocatable,  dimension(:,:,:) ::  Ufield3d_conv
+   real(r8),allocatable,  dimension(:,:,:) ::  Vfield3d_conv
+
+   !integer, dimension(11) :: monarray
+
+   real(r8), allocatable :: tmpfield_conv(:)
+   type(io_desc_t), pointer :: iodesc
+   type(var_desc_t) :: vardesc
+   !real(r8) :: msize,mrss
+
+     !---------------------------------------------------------
+  
+   ! make sure I'm not overlapping variables with the replay_corrector function
+   istep=get_nstep()
+   nstep_count=istep
+
+   conv_forcingtime=1._r8*1800._r8  ! seconds in 0.5 hrs
+
+   if (conv_started .ne. .TRUE.) then
+      conv_started=.TRUE.
+      
+      #if ( defined SPMD )
+          do c = begchunk, endchunk
+              call get_rlat_all_p(c,pcols,rlat)
+              call get_lat_all_p(c,pcols,ilat_all)
+              rlat=rlat*180._r8/3.14159
+              ncols = get_ncols_p(c)
+              do i = 1, ncols
+                  do k=1,pver
+                      state(c)%qconvforce(i,k) = 0.0
+                      state(c)%uconvforce(i,k) = 0.0
+                      state(c)%vconvforce(i,k) = 0.0
+                      state(c)%sconvforce(i,k) = 0.0
+                  end do
+              end do
+          end do
+          #endif
+  endif
+
+  call get_curr_date(yr, mon, day, ncsec)
+
+if (masterproc) then
+   print*, 'reading in convection bias file'
+print*,  'iyear = ', yr
+print*,  'imonth = ', mon
+print*,  'iday = ', day
+print*, "step count from the beginning", nstep_count
+endif
+
+!define constants
+modstep=int((mod(istep, 48)) / 12)*2
+modstep24hr = (mod(istep, 48))
+modstep6hr=  (mod(istep, 12))  
+
+
+    call get_horiz_grid_dim_d(hdim1, hdim2)
+
+fileexists=.FALSE.
+
+!do while (.NOT. fileexists )
+
+!-------------------------------------------------------------------------------------
+!-----------------------------determine filename--------------------------------------
+   if (mon<10) then
+       if (day<10) then
+           write (filename, '("/n/holylfs04/LABS/kuang_lab/Lab/sweidman/IC/spcam_replay_save.","0", I1,"-0",I1,"-",I1,".nc")' ) mon, day,modstep
+       else 
+          write (filename,'("/n/holylfs04/LABS/kuang_lab/Lab/sweidman/IC/spcam_replay_save.","0",I1,"-",I2,"-",I1,".nc")' ) mon, day,modstep
+       endif 
+    else   
+       if (day<10) then
+          write (filename,'("/n/holylfs04/LABS/kuang_lab/Lab/sweidman/IC/spcam_replay_save.",I2,"-0",I1,"-",I1,".nc")' ) mon, day,modstep 
+       else 
+          write (filename,'("/n/holylfs04/LABS/kuang_lab/Lab/sweidman/IC/spcam_replay_save.",I2,"-",I2,"-",I1,".nc")' ) mon, day,modstep 
+       endif 
+    endif  
+
+INQUIRE(FILE=filename, EXIST=fileexists)
+
+if (.not. fileexists) print*, 'file missing', filename
+
+
+!-------------------------------------------------------------------------------------
+if (masterproc) print*, "Convection correction filename = ", filename    ! print filename used
+
+if (modstep6hr==0 .AND. fileexists) then 
+   if (masterproc) print*, 'time to update convection bias file'
+   call cam_pio_openfile(File, trim(filename), 0)
+     csize=endchunk-begchunk+1
+
+        allocate(tmpfield_conv(pcols*csize*pver))
+        allocate(Tfield3d_conv(pcols,pver,begchunk:endchunk))
+        allocate(Ufield3d_conv(pcols,pver,begchunk:endchunk))
+        allocate(Vfield3d_conv(pcols,pver,begchunk:endchunk))
+        allocate(Qfield3d_conv(pcols,pver,begchunk:endchunk))
+
+        tmpfield_conv(:)=0.0
+
+        call get_phys_decomp(iodesc,1,pver,1,pio_double)
+        !if (masterproc) print*, pio_double
+        !if (masterproc) print*, csize, pcols
+
+        ierr = pio_inq_varid(File, "T", vardesc)
+        call pio_setframe(vardesc, int(1,kind=PIO_OFFSET))
+        call pio_read_darray(File, vardesc, iodesc, tmpfield_conv, ierr)
+        Tfield3d_conv = reshape(tmpfield_conv, (/pcols,pver, csize/))
+
+        ierr = pio_inq_varid(File, "U", vardesc)
+        call pio_setframe(vardesc, int(1,kind=PIO_OFFSET))
+        call pio_read_darray(File, vardesc, iodesc, tmpfield_conv, ierr)
+        Ufield3d_conv = reshape(tmpfield_conv, (/pcols,pver, csize/))
+
+        ierr = pio_inq_varid(File, "V", vardesc)
+        call pio_setframe(vardesc, int(1,kind=PIO_OFFSET))
+        call pio_read_darray(File, vardesc, iodesc, tmpfield_conv, ierr)
+        Vfield3d_conv = reshape(tmpfield_conv, (/pcols,pver, csize/))
+
+        ierr = pio_inq_varid(File, "Q", vardesc)
+        call pio_setframe(vardesc, int(1,kind=PIO_OFFSET))
+        call pio_read_darray(File, vardesc, iodesc, tmpfield_conv, ierr)
+        Qfield3d_conv = reshape(tmpfield_conv, (/pcols,pver, csize/))
+
+   call pio_closefile(File)  
+
+        do c = begchunk, endchunk
+            ncols = get_ncols_p(c)
+            do i = 1, ncols
+                do k=1,pver
+                    state(c)%qconvforce(i,k)=(Qfield3d_conv(i,k,c))/conv_forcingtime
+                    state(c)%uconvforce(i,k)=(Ufield3d_conv(i,k,c))/conv_forcingtime
+                    state(c)%vconvforce(i,k)=(Vfield3d_conv(i,k,c))/conv_forcingtime
+                    state(c)%sconvforce(i,k)=(Tfield3d_conv(i,k,c))/conv_forcingtime
+                end do
+            end do
+        end do
+
+        deallocate(tmpfield_conv)
+        deallocate(Tfield3d_conv)
+        deallocate(Ufield3d_conv)
+        deallocate(Vfield3d_conv)
+        deallocate(Qfield3d_conv)
+
+end if
+
+end subroutine read_convective_bias_file 
 
 
 end module physpkg
