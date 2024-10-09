@@ -83,30 +83,15 @@ module physpkg
     integer ::  Tauresy_oldid     = 0
     integer ::  tpert_oldid     = 0
     integer ::  qpert_oldid     = 0
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    integer :: crm_u_oldid = 0 ! SPCAM buffer vars
+    integer :: crm_v_oldid = 0
+    integer :: crm_w_oldid = 0
+    integer :: crm_t_oldid = 0
+    integer :: crm_qrad_oldid = 0
+    integer :: crm_qt_oldid = 0
+    integer :: crm_qp_oldid = 0
+    integer :: crm_qn_oldid = 0
+    integer :: cldo_oldid = 0
 
 
   save
@@ -183,6 +168,7 @@ subroutine phys_register
     use cloud_diagnostics,  only: cloud_diagnostics_register
     use physics_buffer,     only: pbuf_add_field, dtype_r8,pbuf_times
     use crm_physics,        only: crm_physics_register
+    use crmdims,            only: crm_nx, crm_ny, crm_nz
 
     implicit none
     !---------------------------Local variables-----------------------------
@@ -221,7 +207,7 @@ subroutine phys_register
     call pbuf_add_field('CLDLIQINI', 'physpkg', dtype_r8, (/pcols,pver/), cldliqini_idx)
     call pbuf_add_field('CLDICEINI', 'physpkg', dtype_r8, (/pcols,pver/), cldiceini_idx)
 
-print*,'pvers',pver,pverp
+!print*,'pvers',pver,pverp,crm_nx,crm_ny,crm_nz
    call pbuf_add_field('T_TTEND_OLD', 'global', dtype_r8,(/pcols,pver/), t_ttend_oldid)
    call pbuf_add_field('TEOUT_OLD', 'global',dtype_r8,(/pcols,pver/),    TEOUT_oldid     ) 
    call pbuf_add_field('DTCORE_OLD', 'global',dtype_r8,(/pcols,pver/),   DTCORE_oldid    )
@@ -231,23 +217,35 @@ print*,'pvers',pver,pverp
    call pbuf_add_field('CLD_OLD', 'global', dtype_r8,(/pcols,pver/),     CLD_oldid       )
    call pbuf_add_field('AST_OLD', 'global', dtype_r8,(/pcols,pver/),     AST_oldid       )
    call pbuf_add_field('CONCLD_OLD', 'global',dtype_r8,(/pcols,pver/),   CONCLD_oldid    )
-   call pbuf_add_field('DP_FLXPRC_OLD', 'global',dtype_r8,(/pcols,pver/),DP_FLXPRC_oldid )
-   call pbuf_add_field('DP_FLXSNW_OLD', 'global',dtype_r8,(/pcols,pver/),DP_FLXSNW_oldid )
+   call pbuf_add_field('DP_FLXPRC_OLD', 'global',dtype_r8,(/pcols,pverp/),DP_FLXPRC_oldid )
+   call pbuf_add_field('DP_FLXSNW_OLD', 'global',dtype_r8,(/pcols,pverp/),DP_FLXSNW_oldid )
    call pbuf_add_field('DP_CLDLIQ_OLD', 'global',dtype_r8,(/pcols,pver/),DP_CLDLIQ_oldid )
    call pbuf_add_field('DP_CLDICE_OLD', 'global',dtype_r8,(/pcols,pver/),DP_CLDICE_oldid )
    call pbuf_add_field('cush_OLD', 'global', dtype_r8,(/pcols/),    cush_oldid      )
    call pbuf_add_field('QRS_OLD', 'global', dtype_r8,(/pcols,pver/),     QRS_oldid       ) 
    call pbuf_add_field('QRL_OLD', 'global', dtype_r8,(/pcols,pver/),     QRL_oldid       )
-   call pbuf_add_field('pblh_OLD', 'global', dtype_r8,(/pcols,pver/),    pblh_oldid      )
-   call pbuf_add_field('tke_OLD', 'global', dtype_r8,(/pcols,pver/),     tke_oldid       )
-   call pbuf_add_field('kvh_OLD', 'global', dtype_r8,(/pcols,pver/),     kvh_oldid       )
-   call pbuf_add_field('kvm_OLD', 'global', dtype_r8,(/pcols,pver/),     kvm_oldid       ) 
-   call pbuf_add_field('turbtype_OLD', 'global',dtype_r8,(/pcols,pver/), Turbtype_oldid  )    
-   call pbuf_add_field('smaw_OLD', 'global', dtype_r8,(/pcols,pver/),    smaw_oldid      ) 
+   call pbuf_add_field('pblh_OLD', 'global', dtype_r8,(/pcols/),    pblh_oldid      )
+   call pbuf_add_field('tke_OLD', 'global', dtype_r8,(/pcols,pverp/),     tke_oldid       )
+   call pbuf_add_field('kvh_OLD', 'global', dtype_r8,(/pcols,pverp/),     kvh_oldid       )
+   call pbuf_add_field('kvm_OLD', 'global', dtype_r8,(/pcols,pverp/),     kvm_oldid       ) 
+   call pbuf_add_field('turbtype_OLD', 'global',dtype_r8,(/pcols,pverp/), Turbtype_oldid  )    
+   call pbuf_add_field('smaw_OLD', 'global', dtype_r8,(/pcols,pverp/),    smaw_oldid      ) 
    call pbuf_add_field('tauresx_OLD', 'global',dtype_r8,(/pcols/),  Tauresx_oldid   ) 
    call pbuf_add_field('tauresy_OLD', 'global',dtype_r8,(/pcols/),  Tauresy_oldid   ) 
    call pbuf_add_field('tpert_OLD', 'global',dtype_r8,(/pcols/),    tpert_oldid     )
    call pbuf_add_field('qpert_OLD', 'global',dtype_r8,(/pcols,pcnst/),    qpert_oldid     )
+
+   if (use_SPCAM) then
+      call pbuf_add_field('CRM_U_OLD', 'global', dtype_r8, (/pcols,crm_nx, crm_ny, crm_nz/), crm_u_oldid)
+      call pbuf_add_field('CRM_V_OLD', 'global', dtype_r8, (/pcols,crm_nx, crm_ny, crm_nz/), crm_v_oldid)
+      call pbuf_add_field('CRM_W_OLD', 'global', dtype_r8, (/pcols,crm_nx, crm_ny, crm_nz/), crm_w_oldid)
+      call pbuf_add_field('CRM_T_OLD', 'global', dtype_r8, (/pcols,crm_nx, crm_ny, crm_nz/), crm_t_oldid)
+      call pbuf_add_field('CRM_QRAD_OLD', 'global',  dtype_r8, (/pcols,crm_nx, crm_ny, crm_nz/), crm_qrad_oldid)
+      call pbuf_add_field('CRM_QT_OLD', 'global',  dtype_r8, (/pcols, crm_nx, crm_ny, crm_nz/), crm_qt_oldid)
+      call pbuf_add_field('CRM_QP_OLD', 'global',  dtype_r8, (/pcols, crm_nx, crm_ny, crm_nz/), crm_qp_oldid)
+      call pbuf_add_field('CRM_QN_OLD', 'global',  dtype_r8, (/pcols, crm_nx, crm_ny, crm_nz/), crm_qn_oldid)
+      call pbuf_add_field('CLDO_OLD', 'global',  dtype_r8, (/pcols,pver, pbuf_times/), cldo_oldid)
+   end if
 
 
     ! check energy package
@@ -2605,15 +2603,15 @@ do while (.NOT. fileexists )
 !-----------------------------determine filename--------------------------------------
    if (mon<10) then
        if (day<10) then
-           write (filename, '("/n/home04/sweidman/holylfs04/MERRA_coarse/MERRA2_",I4,"0", I1,"0",I1,"_",I1,".nc")' ) yr,mon, day,modstep
+           write (filename, '("/n/home04/sweidman/holylfs04/MERRA2_OG/MERRA2_f19/MERRA2_",I4,"0", I1,"0",I1,"_",I1,".nc")' ) yr,mon, day,modstep
        else 
-           write (filename, '("/n/home04/sweidman/holylfs04/MERRA_coarse/MERRA2_",I4,"0", I1,I2,"_",I1,".nc")' ) yr,mon, day, modstep
+           write (filename, '("/n/home04/sweidman/holylfs04/MERRA2_OG/MERRA2_f19e/MERRA2_",I4,"0", I1,I2,"_",I1,".nc")' ) yr,mon, day, modstep
        endif 
     else   
        if (day<10) then
-           write (filename, '("/n/home04/sweidman/holylfs04/MERRA_coarse/MERRA2_",I4,I2,"0",I1,"_",I1,".nc")' ) yr,mon, day, modstep
+           write (filename, '("/n/home04/sweidman/holylfs04/MERRA2_OG/MERRA2_f19/MERRA2_",I4,I2,"0",I1,"_",I1,".nc")' ) yr,mon, day, modstep
        else 
-           write (filename, '("/n/home04/sweidman/holylfs04/MERRA_coarse/MERRA2_",I4, I2,I2,"_",I1,".nc")' ) yr,mon, day, modstep
+           write (filename, '("/n/home04/sweidman/holylfs04/MERRA2_OG/MERRA2_f19/MERRA2_",I4, I2,I2,"_",I1,".nc")' ) yr,mon, day, modstep
        endif 
     endif  
 
@@ -2730,6 +2728,8 @@ endif
 ! e) reset clock and restart states (not here)
 
     if  (modstep6hr==5 .AND. .NOT. corrector_step ) then
+
+      if (masterproc) print*, "Reading reanalysis"
 
    call cam_pio_openfile(File, trim(filename), 0)
      csize=endchunk-begchunk+1

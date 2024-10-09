@@ -802,6 +802,10 @@ if (first_time) then
     first_time=.FALSE.
 else
 
+   if (my_task == master_task) then
+      print *, 'ice swap orig to old'
+   endif
+
 trcrn        =  old_trcrn       
 Aicen        =  old_Aicen       
 Apondn       =  old_Apondn      
@@ -867,6 +871,10 @@ endif
 
 
 if ( mod(curr_tod,21600)==0 .and. .not. do_restart ) then
+
+   if (my_task == master_task) then
+      print *, 'ice swap old to orig'
+   endif
 
  old_trcrn        =  trcrn
  old_Aicen        =  Aicen

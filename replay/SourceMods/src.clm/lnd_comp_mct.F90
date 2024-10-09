@@ -730,7 +730,9 @@ else
 ! FSUN24               = old_FSUN24
 ! FSUN24               = old_FSUN24
 
-
+   if(masterproc) then
+      print *, 'clm swap orig to old'
+   end if
  
  cptr%cws%H2OSNO               = cptr%cws%old_H2OSNO
  cptr%cps%SNL                  = cptr%cps%old_SNL
@@ -883,7 +885,11 @@ end if
     do_restart=.FALSE.
 end if
 
-if (mod(tod_sync,21600)==0 .and. .not. do_restart) then 
+if (mod(tod_sync,21600)==0 .and. .not. do_restart) then
+   
+   if(masterproc) then
+      print *, 'clm swap old to orig'
+   end if
 
  cptr%cws%old_H2OSNO               = cptr%cws%H2OSNO
  cptr%cps%old_SNL                  = cptr%cps%SNL

@@ -17,7 +17,7 @@ module cam_comp
    use physics_types,     only: physics_state, physics_tend
    use cam_control_mod,   only: nsrest, print_step_cost, obliqr, lambm0, mvelpp, eccen
    use dyn_comp,          only: dyn_import_t, dyn_export_t
-   use ppgrid,            only: begchunk, endchunk, pver, pcols
+   use ppgrid,            only: begchunk, endchunk, pver, pcols, pverp
    use perf_mod
    use cam_logfile,       only: iulog
      use physics_buffer, only: physics_buffer_desc, pbuf_read_restart, pbuf_init_restart, pbuf_deallocate, pbuf_get_index, pbuf_get_field, pbuf_get_chunk, pbuf_old_tim_idx
@@ -352,14 +352,17 @@ subroutine cam_run4( cam_out, cam_in, rstwr, nlend, &
    use cam_history,      only: wshist, wrapup
    use cam_restart,      only: cam_write_restart, cam_read_restart
    use dycore,           only: dycore_is
-       use constituents,    only: pcnst
- use phys_grid        , only: get_ncols_p
-use pio              , only: file_desc_t, pio_closefile
-  use filenames        , only: interpret_filename_spec
-      use cam_pio_utils,    only: cam_pio_openfile
-    use restart_dynamics, only: read_restart_dynamics
-    use restart_physics, only: read_restart_physics
-use camsrfexch,       only: hub2atm_alloc,hub2atm_deallocate
+   use constituents,    only: pcnst
+   use phys_grid        , only: get_ncols_p
+   use pio              , only: file_desc_t, pio_closefile
+   use filenames        , only: interpret_filename_spec
+   use cam_pio_utils,    only: cam_pio_openfile
+   use restart_dynamics, only: read_restart_dynamics
+   use restart_physics, only: read_restart_physics
+   use camsrfexch,       only: hub2atm_alloc,hub2atm_deallocate
+   use phys_control,       only: phys_getopts
+   use crmdims,            only: crm_nx, crm_ny, crm_nz
+   use physics_buffer,  only: pbuf_times
 
 
 #if ( defined SPMD )
@@ -386,6 +389,8 @@ use camsrfexch,       only: hub2atm_alloc,hub2atm_deallocate
    character(len=50) :: rfilename_spec_cam = '%c.cam.r.%y-%m-%d-%s.nc'
    logical, save :: is_first=.TRUE.
    integer :: itim
+   logical           :: use_SPCAM
+   integer :: nx,ny,nz,n_pb ! index increments for crm
 
 real(r8), pointer, dimension(:,:) :: t_ttend   
 real(r8), pointer, dimension(:,:) :: TEOUT     
@@ -403,7 +408,7 @@ real(r8), pointer, dimension(:,:) :: DP_CLDICE
 real(r8), pointer, dimension(:) :: cush      
 real(r8), pointer, dimension(:,:) :: QRS       
 real(r8), pointer, dimension(:,:) :: QRL       
-real(r8), pointer, dimension(:,:) :: pblh      
+real(r8), pointer, dimension(:) :: pblh      
 real(r8), pointer, dimension(:,:) :: tke       
 real(r8), pointer, dimension(:,:) :: kvh       
 real(r8), pointer, dimension(:,:) :: kvm       
@@ -431,7 +436,7 @@ real(r8), pointer, dimension(:,:) :: DP_CLDICE_old
 real(r8), pointer, dimension(:) :: cush_old     
 real(r8), pointer, dimension(:,:) :: QRS_old      
 real(r8), pointer, dimension(:,:) :: QRL_old      
-real(r8), pointer, dimension(:,:) :: pblh_old     
+real(r8), pointer, dimension(:) :: pblh_old     
 real(r8), pointer, dimension(:,:) :: tke_old      
 real(r8), pointer, dimension(:,:) :: kvh_old      
 real(r8), pointer, dimension(:,:) :: kvm_old      
@@ -441,6 +446,26 @@ real(r8), pointer, dimension(:) :: Tauresx_old
 real(r8), pointer, dimension(:) :: Tauresy_old  
 real(r8), pointer, dimension(:) :: tpert_old     
 real(r8), pointer, dimension(:,:) :: qpert_old
+
+! SPCAM vars
+real(r8), pointer, dimension(:,:,:,:) :: crm_u
+real(r8), pointer, dimension(:,:,:,:) :: crm_v
+real(r8), pointer, dimension(:,:,:,:) :: crm_w
+real(r8), pointer, dimension(:,:,:,:) :: crm_t
+real(r8), pointer, dimension(:,:,:,:) :: crm_qrad
+real(r8), pointer, dimension(:,:,:,:) :: crm_qt
+real(r8), pointer, dimension(:,:,:,:) :: crm_qp
+real(r8), pointer, dimension(:,:,:,:) :: crm_qn
+real(r8), pointer, dimension(:,:,:) :: cldo
+real(r8), pointer, dimension(:,:,:,:) :: crm_u_old
+real(r8), pointer, dimension(:,:,:,:) :: crm_v_old
+real(r8), pointer, dimension(:,:,:,:) :: crm_w_old
+real(r8), pointer, dimension(:,:,:,:) :: crm_t_old
+real(r8), pointer, dimension(:,:,:,:) :: crm_qrad_old
+real(r8), pointer, dimension(:,:,:,:) :: crm_qt_old
+real(r8), pointer, dimension(:,:,:,:) :: crm_qp_old
+real(r8), pointer, dimension(:,:,:,:) :: crm_qn_old
+real(r8), pointer, dimension(:,:,:) :: cldo_old
 
 
     integer :: t_ttend_idx       = 0
@@ -498,10 +523,17 @@ real(r8), pointer, dimension(:,:) :: qpert_old
     integer ::  tpert_oldid     = 0
     integer ::  qpert_oldid     = 0
 
+    ! SPCAM ids
+    integer :: crm_u_idx, crm_v_idx, crm_w_idx, crm_t_idx
+    integer :: crm_qrad_idx, crm_qt_idx, crm_qp_idx, crm_qn_idx, cldo_idx
+    integer :: crm_u_oldid, crm_v_oldid, crm_w_oldid, crm_t_oldid
+    integer :: crm_qrad_oldid, crm_qt_oldid, crm_qp_oldid, crm_qn_oldid, cldo_oldid
 
 #if ( defined SPMD )
    real(r8) :: mpi_wtime
 #endif
+
+call phys_getopts( use_SPCAM_out = use_SPCAM )
 !-----------------------------------------------------------------------
 ! print_step_cost
 
@@ -600,6 +632,27 @@ Tauresy_oldid   = pbuf_get_index('tauresy_OLD')
 tpert_oldid     = pbuf_get_index('tpert_OLD') 
 qpert_oldid     = pbuf_get_index('qpert_OLD')
 
+if (use_SPCAM) then
+   crm_u_idx = pbuf_get_index('CRM_U')
+   crm_v_idx = pbuf_get_index('CRM_V')
+   crm_w_idx = pbuf_get_index('CRM_W') 
+   crm_t_idx = pbuf_get_index('CRM_T') 
+   crm_qrad_idx = pbuf_get_index('CRM_QRAD')
+   crm_qt_idx = pbuf_get_index('CRM_QT') 
+   crm_qp_idx = pbuf_get_index('CRM_QP') 
+   crm_qn_idx = pbuf_get_index('CRM_QN')  
+   cldo_idx = pbuf_get_index('CLDO')
+   crm_u_oldid = pbuf_get_index('CRM_U_OLD')
+   crm_v_oldid = pbuf_get_index('CRM_V_OLD') 
+   crm_w_oldid = pbuf_get_index('CRM_W_OLD') 
+   crm_t_oldid = pbuf_get_index('CRM_T_OLD') 
+   crm_qrad_oldid = pbuf_get_index('CRM_QRAD_OLD')
+   crm_qt_oldid = pbuf_get_index('CRM_QT_OLD') 
+   crm_qp_oldid = pbuf_get_index('CRM_QP_OLD') 
+   crm_qn_oldid = pbuf_get_index('CRM_QN_OLD')  
+   cldo_oldid = pbuf_get_index('CLDO_OLD')  
+end if 
+
 call pbuf_get_field(pbuf,t_ttend_oldid  , t_ttend_old  ) 
 call pbuf_get_field(pbuf,TEOUT_oldid    , TEOUT_old    )
 call pbuf_get_field(pbuf,DTCORE_oldid   , DTCORE_old   )
@@ -654,6 +707,28 @@ call pbuf_get_field(pbuf,tauresy_idx  , Tauresy   )
 call pbuf_get_field(pbuf,tpert_idx    , tpert     )
 call pbuf_get_field(pbuf,qpert_idx    , qpert     )
 
+! SPCAM get buffer
+if (use_SPCAM) then
+   call pbuf_get_field(pbuf,crm_u_idx,crm_u)
+   call pbuf_get_field(pbuf,crm_v_idx,crm_v) 
+   call pbuf_get_field(pbuf,crm_w_idx,crm_w) 
+   call pbuf_get_field(pbuf,crm_t_idx,crm_t) 
+   call pbuf_get_field(pbuf,crm_qrad_idx,crm_qrad)
+   call pbuf_get_field(pbuf,crm_qt_idx,crm_qt) 
+   call pbuf_get_field(pbuf,crm_qp_idx,crm_qp) 
+   call pbuf_get_field(pbuf,crm_qn_idx,crm_qn)  
+   call pbuf_get_field(pbuf,cldo_idx,cldo)
+   call pbuf_get_field(pbuf,crm_u_oldid,crm_u_old)
+   call pbuf_get_field(pbuf,crm_v_oldid,crm_v_old) 
+   call pbuf_get_field(pbuf,crm_w_oldid,crm_w_old) 
+   call pbuf_get_field(pbuf,crm_t_oldid,crm_t_old) 
+   call pbuf_get_field(pbuf,crm_qrad_oldid,crm_qrad_old)
+   call pbuf_get_field(pbuf,crm_qt_oldid,crm_qt_old) 
+   call pbuf_get_field(pbuf,crm_qp_oldid,crm_qp_old) 
+   call pbuf_get_field(pbuf,crm_qn_oldid,crm_qn_old)  
+   call pbuf_get_field(pbuf,cldo_oldid,cldo_old)  
+end if 
+
 ncol = get_ncols_p(lchnk)
 do i = 1, ncol 
  do k = 1, pver
@@ -666,26 +741,49 @@ TCWAT(i,k)    = TCWAT_old(i,k)
 CLD(i,k)      = CLD_old(i,k)       
 AST(i,k)      = AST_old(i,k)       
 CONCLD(i,k)   = CONCLD_old(i,k)    
-DP_FLXPRC(i,k)= DP_FLXPRC_old(i,k) 
-DP_FLXSNW(i,k)= DP_FLXSNW_old(i,k) 
 DP_CLDLIQ(i,k)= DP_CLDLIQ_old(i,k) 
 DP_CLDICE(i,k)= DP_CLDICE_old(i,k) 
 QRS(i,k)      = QRS_old(i,k)       
-QRL(i,k)      = QRL_old(i,k)       
-pblh(i,k)     = pblh_old(i,k)      
-tke(i,k)      = tke_old(i,k)       
-kvh(i,k)      = kvh_old(i,k)       
-kvm(i,k)      = kvm_old(i,k)       
-turbtype(i,k) = turbtype_old(i,k)  
-smaw(i,k)     = smaw_old(i,k)      
-end do
+QRL(i,k)      = QRL_old(i,k)   
+if (use_SPCAM) then
+   do n_pb = 1,pbuf_times
+      CLDO(i,k,n_pb) = CLDO_old(i,k,n_pb)
+   end do
+end if          
+end do !pver
+do k = 1, pverp
+   DP_FLXPRC(i,k)= DP_FLXPRC_old(i,k) 
+   DP_FLXSNW(i,k)= DP_FLXSNW_old(i,k) 
+   tke(i,k)      = tke_old(i,k)       
+   kvh(i,k)      = kvh_old(i,k)       
+   kvm(i,k)      = kvm_old(i,k)       
+   turbtype(i,k) = turbtype_old(i,k)  
+   smaw(i,k)     = smaw_old(i,k) 
+end do !pverp
+pblh(i)     = pblh_old(i)  
 tauresx(i)  = tauresx_old(i)   
 tauresy(i)  = tauresy_old(i)   
 tpert(i)    = tpert_old(i)     
 cush(i)     = cush_old(i)      
 qpert(i,1)  = qpert_old(i,1)
-end do
-end do
+if (use_SPCAM) then
+   do nz = 1,crm_nz
+      do nx = 1,crm_nx
+         do ny = 1,crm_ny
+            crm_u(i,nx,ny,nz) = crm_u_old(i,nx,ny,nz)
+            crm_v(i,nx,ny,nz) = crm_v_old(i,nx,ny,nz)
+            crm_w(i,nx,ny,nz) = crm_w_old(i,nx,ny,nz)
+            crm_t(i,nx,ny,nz) = crm_t_old(i,nx,ny,nz)
+            crm_qrad(i,nx,ny,nz) = crm_qrad_old(i,nx,ny,nz)
+            crm_qt(i,nx,ny,nz) = crm_qt_old(i,nx,ny,nz)
+            crm_qp(i,nx,ny,nz) = crm_qp_old(i,nx,ny,nz)
+            crm_qn(i,nx,ny,nz) = crm_qn_old(i,nx,ny,nz)
+         end do ! ny
+      end do ! nx
+   end do ! nz
+end if ! use SPCAM
+end do ! ncol
+end do !lchnk
 
 !        call cam_read_restart( cam_out, dyn_in, dyn_out, pbuf2d, -1, 0, NLFileName=filein, passed_loc=locfn)
 
@@ -770,6 +868,27 @@ Tauresy_oldid   = pbuf_get_index('tauresy_OLD')
 tpert_oldid     = pbuf_get_index('tpert_OLD') 
 qpert_oldid     = pbuf_get_index('qpert_OLD')
 
+if (use_SPCAM) then
+   crm_u_idx = pbuf_get_index('CRM_U')
+   crm_v_idx = pbuf_get_index('CRM_V')
+   crm_w_idx = pbuf_get_index('CRM_W') 
+   crm_t_idx = pbuf_get_index('CRM_T') 
+   crm_qrad_idx = pbuf_get_index('CRM_QRAD')
+   crm_qt_idx = pbuf_get_index('CRM_QT') 
+   crm_qp_idx = pbuf_get_index('CRM_QP') 
+   crm_qn_idx = pbuf_get_index('CRM_QN')  
+   cldo_idx = pbuf_get_index('CLDO')
+   crm_u_oldid = pbuf_get_index('CRM_U_OLD')
+   crm_v_oldid = pbuf_get_index('CRM_V_OLD') 
+   crm_w_oldid = pbuf_get_index('CRM_W_OLD') 
+   crm_t_oldid = pbuf_get_index('CRM_T_OLD') 
+   crm_qrad_oldid = pbuf_get_index('CRM_QRAD_OLD')
+   crm_qt_oldid = pbuf_get_index('CRM_QT_OLD') 
+   crm_qp_oldid = pbuf_get_index('CRM_QP_OLD') 
+   crm_qn_oldid = pbuf_get_index('CRM_QN_OLD')  
+   cldo_oldid = pbuf_get_index('CLDO_OLD')  
+end if 
+
 call pbuf_get_field(pbuf,t_ttend_oldid  , t_ttend_old  ) 
 call pbuf_get_field(pbuf,TEOUT_oldid    , TEOUT_old    )
 call pbuf_get_field(pbuf,DTCORE_oldid   , DTCORE_old   )
@@ -824,6 +943,28 @@ call pbuf_get_field(pbuf,tauresy_idx  , Tauresy   )
 call pbuf_get_field(pbuf,tpert_idx    , tpert     )
 call pbuf_get_field(pbuf,qpert_idx    , qpert     )
 
+! SPCAM get buffer
+if (use_SPCAM) then
+   call pbuf_get_field(pbuf,crm_u_idx,crm_u)
+   call pbuf_get_field(pbuf,crm_v_idx,crm_v) 
+   call pbuf_get_field(pbuf,crm_w_idx,crm_w) 
+   call pbuf_get_field(pbuf,crm_t_idx,crm_t) 
+   call pbuf_get_field(pbuf,crm_qrad_idx,crm_qrad)
+   call pbuf_get_field(pbuf,crm_qt_idx,crm_qt) 
+   call pbuf_get_field(pbuf,crm_qp_idx,crm_qp) 
+   call pbuf_get_field(pbuf,crm_qn_idx,crm_qn)  
+   call pbuf_get_field(pbuf,cldo_idx,cldo)
+   call pbuf_get_field(pbuf,crm_u_oldid,crm_u_old)
+   call pbuf_get_field(pbuf,crm_v_oldid,crm_v_old) 
+   call pbuf_get_field(pbuf,crm_w_oldid,crm_w_old) 
+   call pbuf_get_field(pbuf,crm_t_oldid,crm_t_old) 
+   call pbuf_get_field(pbuf,crm_qrad_oldid,crm_qrad_old)
+   call pbuf_get_field(pbuf,crm_qt_oldid,crm_qt_old) 
+   call pbuf_get_field(pbuf,crm_qp_oldid,crm_qp_old) 
+   call pbuf_get_field(pbuf,crm_qn_oldid,crm_qn_old)  
+   call pbuf_get_field(pbuf,cldo_oldid,cldo_old)  
+end if 
+
 ncol = get_ncols_p(lchnk)
 do i = 1, ncol 
  do k = 1, pver
@@ -836,24 +977,47 @@ TCWAT_old(i,k)    = TCWAT(i,k)
 CLD_old(i,k)      = CLD(i,k)       
 AST_old(i,k)      = AST(i,k)       
 CONCLD_old(i,k)   = CONCLD(i,k)    
-DP_FLXPRC_old(i,k)= DP_FLXPRC(i,k) 
-DP_FLXSNW_old(i,k)= DP_FLXSNW(i,k) 
 DP_CLDLIQ_old(i,k)= DP_CLDLIQ(i,k) 
 DP_CLDICE_old(i,k)= DP_CLDICE(i,k) 
 QRS_old(i,k)      = QRS(i,k)       
 QRL_old(i,k)      = QRL(i,k)       
-pblh_old(i,k)     = pblh(i,k)      
-tke_old(i,k)      = tke(i,k)       
-kvh_old(i,k)      = kvh(i,k)       
-kvm_old(i,k)      = kvm(i,k)       
-turbtype_old(i,k) = turbtype(i,k)  
-smaw_old(i,k)     = smaw(i,k)      
+if (use_SPCAM) then
+   do n_pb = 1,pbuf_times
+      CLDO_old(i,k,n_pb) = CLDO(i,k,n_pb)
+   end do
+end if   
 end do
+do k = 1, pverp
+   DP_FLXPRC_old(i,k)= DP_FLXPRC(i,k) 
+   DP_FLXSNW_old(i,k)= DP_FLXSNW(i,k) 
+   tke_old(i,k)      = tke(i,k)       
+   kvh_old(i,k)      = kvh(i,k)       
+   kvm_old(i,k)      = kvm(i,k)       
+   turbtype_old(i,k) = turbtype(i,k)  
+   smaw_old(i,k)     = smaw(i,k) 
+end do
+pblh_old(i)     = pblh(i)
 tauresx_old(i)  = tauresx(i)   
 tauresy_old(i)  = tauresy(i)   
 tpert_old(i)    = tpert(i)     
 cush_old(i)     = cush(i)      
 qpert_old(i,1)  = qpert(i,1)
+if (use_SPCAM) then
+   do nz = 1,crm_nz
+      do nx = 1,crm_nx
+         do ny = 1,crm_ny
+            crm_u_old(i,nx,ny,nz) = crm_u(i,nx,ny,nz)
+            crm_v_old(i,nx,ny,nz) = crm_v(i,nx,ny,nz)
+            crm_w_old(i,nx,ny,nz) = crm_w(i,nx,ny,nz)
+            crm_t_old(i,nx,ny,nz) = crm_t(i,nx,ny,nz)
+            crm_qrad_old(i,nx,ny,nz) = crm_qrad(i,nx,ny,nz)
+            crm_qt_old(i,nx,ny,nz) = crm_qt(i,nx,ny,nz)
+            crm_qp_old(i,nx,ny,nz) = crm_qp(i,nx,ny,nz)
+            crm_qn_old(i,nx,ny,nz) = crm_qn(i,nx,ny,nz)
+         end do ! ny
+      end do ! nx
+   end do ! nz
+end if ! use SPCAM
 end do
 end do
 end if

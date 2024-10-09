@@ -632,8 +632,11 @@ use physpkg,          only: phys_init
 
 
 
-if (mod(tod,21600)==0 .and. .not. do_restart) then 
-        print *, 'swap 2-a'
+if (mod(tod,21600)==0 .and. .not. do_restart) then
+   
+   if(masterproc) then
+      print *, 'swap 2-a'
+   end if
  
         do_restart=.TRUE.
  
@@ -719,7 +722,9 @@ if (mod(tod,21600)==0 .and. .not. do_restart) then
 
 if ( mod(tod,21600)==10800 .AND. do_restart ) then
 
-        print *, 'swap 1-a'
+   if(masterproc) then
+      print *, 'swap 1-a'
+   end if
 
         do_restart=.FALSE.
  
@@ -753,15 +758,6 @@ if ( mod(tod,21600)==10800 .AND. do_restart ) then
                 cam_in(c)%ustar(i)     = cam_in(c)%old_ustar(i)
                 cam_in(c)%re(i)        = cam_in(c)%old_re(i)
                 !cam_in(c)%depvel(i)    = cam_in(c)%old_depvel(i)
-
-
-
-
-
-
-
-
-
 
                 cam_out(c)%tbot(i)     = cam_out(c)%old_tbot(i)      
                 cam_out(c)%zbot(i)     = cam_out(c)%old_zbot(i)      
