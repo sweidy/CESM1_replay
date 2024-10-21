@@ -2207,6 +2207,8 @@ subroutine tphysbc (ztodt,               &
        snow_sed(:ncol) = snow_sed(:ncol) + snow_sed_carma(:ncol)
     end if
 
+    if (masterproc) print*, 'about to run spcam: state%t ', state%t(1,pver-1)
+
     if (use_SPCAM) then
       call crm_physics_tend(ztodt, state, tend, ptend, pbuf, dlf, cam_in, cam_out)
 
@@ -2605,7 +2607,7 @@ do while (.NOT. fileexists )
        if (day<10) then
            write (filename, '("/n/home04/sweidman/holylfs04/MERRA2_OG/MERRA2_f19/MERRA2_",I4,"0", I1,"0",I1,"_",I1,".nc")' ) yr,mon, day,modstep
        else 
-           write (filename, '("/n/home04/sweidman/holylfs04/MERRA2_OG/MERRA2_f19e/MERRA2_",I4,"0", I1,I2,"_",I1,".nc")' ) yr,mon, day, modstep
+           write (filename, '("/n/home04/sweidman/holylfs04/MERRA2_OG/MERRA2_f19/MERRA2_",I4,"0", I1,I2,"_",I1,".nc")' ) yr,mon, day, modstep
        endif 
     else   
        if (day<10) then
